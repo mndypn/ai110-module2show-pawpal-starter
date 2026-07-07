@@ -2,10 +2,18 @@
 
 ## 1. System Design
 
+- add pet/owner info, add/edit tasks, generate and display daily schedule
+
 **a. Initial design**
 
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
+
+The classes I used are:
+Owner: attributes = name, pets / methods = add pet, view tasks
+Pet: attributes = name, age, species, tasks / methods = add task
+Task: attributes = description, due date, completion status, priority, duration / methods = mark complete, edit task
+Scheduler: methods = filter tasks, sort tasks
 
 **b. Design changes**
 
