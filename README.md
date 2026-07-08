@@ -54,6 +54,19 @@ Paste a sample of your app's CLI or Streamlit output here so a reader can see wh
 #   ...
 ```
 
+```
+Today's Schedule for Maya
+========================================
+
+ Daily plan for Rex (dog):
+   07:30 - Morning walk (30 min) [priority: high]
+   18:00 - Evening walk (30 min) [priority: high]
+
+ Daily plan for Luna (cat):
+   08:00 - Feed breakfast (10 min) [priority: medium]
+   20:00 - Litter box cleaning (15 min) [priority: low]
+```
+
 ## 🧪 Testing PawPal+
 
 ```bash
