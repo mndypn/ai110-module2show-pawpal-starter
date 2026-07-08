@@ -19,6 +19,8 @@ Scheduler: methods = filter tasks, sort tasks
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
+Yes, Claude recommended to change the priority to a dictionary instead of a string because if it stays a string, the sorting method will sort it alphabetically instead of ranked by urgency. I made this change because this makes sense if I want the sorting to work as intended.
+
 
 ---
 

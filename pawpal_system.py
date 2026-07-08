@@ -5,8 +5,13 @@ Owner) use dataclasses to keep the code clean; Scheduler is a plain
 service class since it only operates on tasks.
 """
 
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import date
+
+# Ordered priority levels so tasks can be ranked meaningfully (a bare string
+# sorts alphabetically, which is not urgency order).
+PRIORITY_ORDER = {"high": 0, "medium": 1, "low": 2}
 
 
 @dataclass
@@ -14,8 +19,10 @@ class Task:
     description: str
     due_date: date
     completion_status: bool = False
-    priority: str = ""
+    priority: str = "medium"  # one of PRIORITY_ORDER
     duration: int = 0
+    # Back-reference so a task flattened out of its pet still knows its owner.
+    pet: "Pet | None" = field(default=None, repr=False)
 
     def mark_complete(self) -> None:
         """Mark this task as completed."""
