@@ -126,17 +126,41 @@ if st.button("Add task"):
 # Show every task across all of the owner's pets via Owner.view_tasks().
 current_tasks = owner.view_tasks()
 if current_tasks:
-    st.write("Current tasks:")
+    # Let the Scheduler decide the order (earliest due first, then priority,
+    # then shortest) instead of showing them in the order they were typed.
+    ordered_tasks = scheduler.sort_tasks(current_tasks)
+
+    # Surface scheduling clashes BEFORE the table, where the owner is looking.
+    # detect_conflicts() returns one human-readable string per clash; we turn
+    # each into its own amber st.warning so two separate conflicts stay
+    # readable instead of merging into one block of text.
+    conflicts = scheduler.detect_conflicts(current_tasks)
+    for warning in conflicts:
+        # The method prefixes each string with "WARNING: " for plain-text use;
+        # st.warning already shows a caution icon, so drop the redundant word
+        # and add a plain-language nudge the owner can act on.
+        message = warning.removeprefix("WARNING: ")
+        st.warning(
+            f"⚠️ Scheduling conflict — {message}\n\n"
+            "You can only be in one place at a time. Consider moving one of "
+            "these tasks to a different time.",
+            icon="⚠️",
+        )
+    if not conflicts:
+        st.success("✅ No scheduling conflicts — every task is at its own time.")
+
+    st.write("Current tasks (sorted by urgency):")
     st.table(
         [
             {
-                "title": t.description,
-                "due_date": t.due_date,
-                "duration_minutes": t.duration,
-                "priority": t.priority,
-                "done": t.completion_status,
+                "Task": t.description,
+                "Pet": t.pet.name if t.pet else "—",
+                "Due": t.due_date.strftime("%a %m/%d %H:%M"),
+                "Duration (min)": t.duration,
+                "Priority": t.priority.title(),
+                "Done": "✅" if t.completion_status else "—",
             }
-            for t in current_tasks
+            for t in ordered_tasks
         ]
     )
 else:
@@ -156,16 +180,30 @@ if st.button("Generate schedule"):
     plan = scheduler.build_schedule(owner, available_minutes=int(available))
 
     if plan:
-        st.write(f"Planned {len(plan)} task(s) into {int(available)} minutes:")
-        used = 0
-        for i, task in enumerate(plan, start=1):
-            used += task.duration
-            st.markdown(
-                f"**{i}. {task.description}** — {task.duration} min, "
-                f"priority *{task.priority}*, due {task.due_date} "
-                f"(runs because it fits the remaining time budget)"
-            )
-        st.caption(f"Total time used: {used} / {int(available)} minutes.")
+        used = sum(task.duration for task in plan)
+        st.success(
+            f"✅ Planned {len(plan)} task(s) using {used} of {int(available)} "
+            f"minutes ({int(available) - used} min free)."
+        )
+
+        # Flag any clashes inside the planned tasks so the owner doesn't get a
+        # tidy-looking schedule that's secretly double-booked.
+        for warning in scheduler.detect_conflicts(plan):
+            st.warning(warning.removeprefix("WARNING: "), icon="⚠️")
+
+        st.table(
+            [
+                {
+                    "#": i,
+                    "Task": task.description,
+                    "Pet": task.pet.name if task.pet else "—",
+                    "Due": task.due_date.strftime("%a %m/%d %H:%M"),
+                    "Duration (min)": task.duration,
+                    "Priority": task.priority.title(),
+                }
+                for i, task in enumerate(plan, start=1)
+            ]
+        )
     else:
         st.warning(
             "No tasks fit the plan. Add tasks above, or increase the available minutes."

@@ -1,6 +1,38 @@
 # PawPal+ (Module 2 Project)
 
-You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
+**PawPal+** is a Streamlit app that helps a pet owner plan daily care tasks across
+one or more pets. It tracks each task's time, duration, priority, and recurrence,
+then builds an explainable daily plan that fits the owner's available time — and
+warns them when two tasks would collide.
+
+## ✨ Features
+
+Each feature below is backed by a real algorithm in
+[pawpal_system.py](pawpal_system.py); the method that implements it is named so you
+can jump straight to the code.
+
+- **Urgency sorting** — orders tasks by a composite key (earliest due date →
+  highest priority → shortest duration) so the most pressing care happens first.
+  *(`Scheduler.sort_tasks`)*
+- **Sorting by time of day** — orders tasks chronologically by clock time
+  (`07:30 → 08:00 → 18:00`), independent of the calendar date. *(`Scheduler.sort_by_time`)*
+- **Conflict warnings** — detects when two tasks are due at the same date **and**
+  time, even across different pets, and returns human-readable warnings the UI
+  surfaces as amber alerts. *(`Scheduler.detect_conflicts`)*
+- **Daily / weekly recurrence** — completing a repeating task automatically
+  schedules its next occurrence, using `timedelta` so month/year rollovers are
+  correct (a daily task due Jan 31 becomes Feb 1). *(`Task.mark_complete`)*
+- **Constraint-based daily planning** — greedily fits tasks into the owner's
+  available minutes in urgency order, skipping anything that doesn't fit or is
+  already done. *(`Scheduler.build_schedule`)*
+- **Flexible filtering** — narrows tasks by pet, completion status, priority,
+  due-by cutoff, and maximum duration. *(`Scheduler.filter_by`, `Scheduler.filter_tasks`)*
+- **Task editing with validation** — updates only the fields you pass and rejects
+  an invalid priority or a negative duration. *(`Task.edit_task`)*
+- **Multi-pet management** — one owner can hold several pets, and the scheduler
+  reasons over every pet's tasks together. *(`Owner.add_pet`, `Owner.view_tasks`)*
+- **Professional Streamlit UI** — sorted task tables, green success summaries, and
+  per-conflict warnings so the plan is easy to read and act on. *(`app.py`)*
 
 ## Scenario
 
@@ -180,12 +212,47 @@ new task is attached to the same pet and returned; a `once` task returns
 
 ## 📸 Demo Walkthrough
 
-Describe your app in numbered steps so a reader can follow along without watching a video:
+**What the UI lets you do:** set the owner name, add pets, add tasks (title,
+duration, priority, due date + time), see a live task table sorted by urgency with
+conflict warnings, and generate a time-boxed daily schedule.
 
-1. <!-- Describe this step -->
-2. <!-- Describe this step -->
-3. <!-- Describe this step -->
-4. <!-- Describe this step -->
-5. <!-- Add more steps as needed -->
+**Example workflow:**
 
-**Screenshot or video** *(optional)*: <!-- Insert a screenshot or link to a demo video here -->
+1. Add a pet - `Rex`, age 4, dog → *Add pet*.
+2. Schedule tasks - add *Morning walk* (30 min, high, 07:30) and *Give
+   medication* (5 min, high, 08:00).
+3. Trigger a conflict - add a second pet Luna with *Feed breakfast* at 08:00;
+   the table shows an amber warning that Rex's meds and Luna's breakfast collide.
+4. View today's schedule - set available minutes to 60 and *Generate schedule*.
+
+**Scheduler behaviors shown:** time-of-day sorting (`sort_by_time`), urgency sorting
+(`sort_tasks`), cross-pet conflict warnings (`detect_conflicts`), daily/weekly
+recurrence (`mark_complete`), and filtering to incomplete tasks (`filter_by`).
+
+**Sample CLI output (`python main.py`):**
+
+```text
+Today's Schedule for Maya, sorted by time
+=======================================================
+   Wed 07/08 07:30 - Morning walk (30 min) [priority: high] [todo] [daily] (Rex)
+   Wed 07/08 08:00 - Give medication (5 min) [priority: high] [todo] [daily] (Rex)
+   Wed 07/08 08:00 - Feed breakfast (10 min) [priority: medium] [todo] [daily] (Luna)
+   Wed 07/08 18:00 - Evening walk (30 min) [priority: high] [todo] [daily] (Rex)
+   Wed 07/08 20:00 - Litter box cleaning (15 min) [priority: low] [todo] [weekly] (Luna)
+
+Conflict check
+=======================================================
+   WARNING: 2 tasks overlap at Wed 07/08 08:00: Give medication (Rex), Feed breakfast (Luna)
+
+Marking 'Morning walk' and 'Litter box cleaning' complete...
+   -> daily task rescheduled to Thu 07/09
+   -> weekly task rescheduled to Wed 07/15
+
+Still to do (incomplete tasks only)
+=======================================================
+   Thu 07/09 07:30 - Morning walk (30 min) [priority: high] [todo] [daily] (Rex)
+   Wed 07/08 08:00 - Give medication (5 min) [priority: high] [todo] [daily] (Rex)
+   Wed 07/08 08:00 - Feed breakfast (10 min) [priority: medium] [todo] [daily] (Luna)
+   Wed 07/08 18:00 - Evening walk (30 min) [priority: high] [todo] [daily] (Rex)
+   Wed 07/15 20:00 - Litter box cleaning (15 min) [priority: low] [todo] [weekly] (Luna)
+```
