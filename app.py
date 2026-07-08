@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import datetime, time
 
 import streamlit as st
 
@@ -105,13 +105,18 @@ with col2:
     duration = st.number_input("Duration (minutes)", min_value=1, max_value=240, value=20)
 with col3:
     priority = st.selectbox("Priority", ["low", "medium", "high"], index=2)
-task_due = st.date_input("Due date", value=date.today())
+due_col, time_col = st.columns(2)
+with due_col:
+    task_due_date = st.date_input("Due date", value=datetime.today().date())
+with time_col:
+    task_due_time = st.time_input("Due time", value=time(8, 0))
 
 if st.button("Add task"):
-    # Build a Task object and attach it to the pet via Pet.add_task().
+    # Combine the date + time-of-day into a single datetime so time-based
+    # sorting and conflict detection have a real time to work with.
     task = Task(
         description=task_title,
-        due_date=task_due,
+        due_date=datetime.combine(task_due_date, task_due_time),
         priority=priority,
         duration=int(duration),
     )

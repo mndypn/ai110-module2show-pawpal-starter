@@ -69,18 +69,54 @@ Today's Schedule for Maya
 
 ## 🧪 Testing PawPal+
 
-```bash
-# Run the full test suite:
-pytest
+Run the full test suite from the project folder:
 
-# Run with coverage:
-pytest --cov
+```bash
+python -m pytest
 ```
+
+Add `-v` for a per-test breakdown (`python -m pytest -v`).
+
+The tests live in [test_pawpal.py](test_pawpal.py) and cover the core
+scheduling behaviors:
+
+- **Task completion** — `mark_complete()` flips a task's status to done.
+- **Adding tasks** — `Pet.add_task()` attaches a task and updates the pet's count.
+- **Urgency sorting** — `Scheduler.sort_tasks()` returns tasks in chronological
+  (earliest due date first) order and leaves the caller's original list untouched.
+- **Time-of-day sorting** — `Scheduler.sort_by_time()` orders tasks by clock
+  time (07:30 → 12:00 → 18:00) regardless of calendar date.
+- **Recurrence logic** — marking a `daily` task complete creates a new
+  incomplete task for the following day (same time of day), attached to the same pet.
+- **Conflict detection** — `Scheduler.detect_conflicts()` flags two tasks due
+  at the same date *and time* (even across pets), does not flag tasks on the
+  same day at different times, and does not flag tasks on different days.
+- **Schedule building** — `Scheduler.build_schedule()` greedily fits tasks into
+  the available time budget in urgency order and skips completed tasks.
+- **Editing & validation** — `Task.edit_task()` updates only the fields passed
+  and raises `ValueError` on an invalid priority or a negative duration.
 
 Sample test output:
 
 ```
-# Paste your pytest output here
+============================= test session starts =============================
+collected 13 items
+
+test_pawpal.py::test_mark_complete_changes_status PASSED                 [  7%]
+test_pawpal.py::test_add_task_increases_pet_task_count PASSED            [ 15%]
+test_pawpal.py::test_sort_tasks_returns_chronological_order PASSED       [ 23%]
+test_pawpal.py::test_sort_by_time_orders_by_time_of_day PASSED           [ 30%]
+test_pawpal.py::test_daily_task_recurrence_creates_next_day_task PASSED  [ 38%]
+test_pawpal.py::test_detect_conflicts_flags_duplicate_times PASSED       [ 46%]
+test_pawpal.py::test_detect_conflicts_same_day_different_time_is_not_a_conflict PASSED [ 53%]
+test_pawpal.py::test_detect_conflicts_no_false_positive PASSED           [ 61%]
+test_pawpal.py::test_build_schedule_fits_tasks_into_time_budget PASSED   [ 69%]
+test_pawpal.py::test_build_schedule_skips_completed_tasks PASSED         [ 76%]
+test_pawpal.py::test_edit_task_updates_fields PASSED                     [ 84%]
+test_pawpal.py::test_edit_task_rejects_invalid_priority PASSED           [ 92%]
+test_pawpal.py::test_edit_task_rejects_negative_duration PASSED          [100%]
+
+============================== 13 passed in 0.05s ==============================
 ```
 
 ## 📐 Smarter Scheduling
@@ -102,10 +138,10 @@ dataclass. Each feature below names the exact method that implements it.
 Two complementary sorts are provided:
 
 - **`Scheduler.sort_by_time()`** orders tasks by time of day, earliest first.
-  The sort key is each task's due time formatted as a zero-padded `"HH:MM"`
-  string, so a plain string comparison already yields correct chronological
-  order (`"07:30" < "08:00" < "18:00"`). Returns a new list, leaving the
-  caller's original order untouched.
+  Each task's `due_date` is a `datetime`, so the sort key is its time-of-day
+  (`due_date.time()`) and clock times compare directly in the right order
+  (`07:30 < 08:00 < 18:00`) regardless of the calendar date. Returns a new
+  list, leaving the caller's original order untouched.
 - **`Scheduler.sort_tasks()`** orders tasks by *urgency* using a composite key:
   earliest **due date** first, then highest **priority** (via the
   `PRIORITY_ORDER` map so `high < medium < low` rather than sorting

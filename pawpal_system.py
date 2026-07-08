@@ -7,7 +7,7 @@ service class since it only operates on tasks.
 
 from collections import defaultdict
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 
 # Ordered priority levels so tasks can be ranked meaningfully (a bare string
 # sorts alphabetically, which is not urgency order).
@@ -27,7 +27,7 @@ FREQUENCIES = {"once"} | set(FREQUENCY_DELTA)
 @dataclass
 class Task:
     description: str
-    due_date: date
+    due_date: datetime  # date AND time of day, so time-based sorting/conflicts work
     completion_status: bool = False
     priority: str = "medium"  # one of PRIORITY_ORDER
     duration: int = 0
@@ -65,7 +65,7 @@ class Task:
         self,
         *,
         description: str | None = None,
-        due_date: date | None = None,
+        due_date: datetime | None = None,
         priority: str | None = None,
         duration: int | None = None,
         frequency: str | None = None,
@@ -134,7 +134,7 @@ class Scheduler:
         *,
         include_completed: bool = False,
         priority: str | None = None,
-        due_by: date | None = None,
+        due_by: date | datetime | None = None,
         max_duration: int | None = None,
     ) -> list[Task]:
         """Return the subset of tasks matching the given constraints.
@@ -142,6 +142,10 @@ class Scheduler:
         By default completed tasks are dropped (you rarely want to re-plan
         something that's already done). Any other argument left as None is
         simply not applied as a filter.
+
+        `due_by` may be a full ``datetime`` (compared moment-for-moment) or a
+        plain ``date`` (treated as "any time that day still counts"). We branch
+        because comparing a ``datetime`` against a ``date`` raises TypeError.
         """
         result = []
         for task in tasks:
@@ -149,8 +153,14 @@ class Scheduler:
                 continue
             if priority is not None and task.priority != priority:
                 continue
-            if due_by is not None and task.due_date > due_by:
-                continue
+            if due_by is not None:
+                past_cutoff = (
+                    task.due_date > due_by
+                    if isinstance(due_by, datetime)
+                    else task.due_date.date() > due_by
+                )
+                if past_cutoff:
+                    continue
             if max_duration is not None and task.duration > max_duration:
                 continue
             result.append(task)
@@ -168,7 +178,7 @@ class Scheduler:
         Works across pets: two pets both due at 08:00 is still a conflict for
         the one owner who has to be in two places at once.
         """
-        by_time: defaultdict[date, list[Task]] = defaultdict(list)
+        by_time: defaultdict[datetime, list[Task]] = defaultdict(list)
         for task in tasks:
             if not task.completion_status:  # a finished task can't clash
                 by_time[task.due_date].append(task)
@@ -188,14 +198,13 @@ class Scheduler:
     def sort_by_time(self, tasks: list[Task]) -> list[Task]:
         """Return tasks ordered by time of day, earliest first.
 
-        The sort key is each task's due time formatted as an "HH:MM" string
-        (e.g. "07:30"). Because the hour and minute are zero-padded to two
-        digits, a plain string comparison already gives the correct
-        chronological order -- "07:30" < "08:00" < "18:00" -- so the lambda
-        just hands that string to sorted() as the key. Returns a new list so
-        the caller's original order is left untouched.
+        The sort key is each task's due *time of day* (``datetime.time()``),
+        so "07:30" comes before "08:00" comes before "18:00" regardless of the
+        calendar date. Comparing ``time`` objects directly gives correct
+        chronological order. Returns a new list so the caller's original order
+        is left untouched.
         """
-        return sorted(tasks, key=lambda t: t.due_date.strftime("%H:%M"))
+        return sorted(tasks, key=lambda t: t.due_date.time())
 
     def filter_by(
         self,
