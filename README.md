@@ -85,14 +85,62 @@ Sample test output:
 
 ## 📐 Smarter Scheduling
 
-> Fill in once you've implemented scheduling logic.
+The scheduling "brain" lives in the `Scheduler` service class in
+[pawpal_system.py](pawpal_system.py), with recurrence handled on the `Task`
+dataclass. Each feature below names the exact method that implements it.
 
 | Feature | Method(s) | Notes |
 |---------|-----------|-------|
-| Task sorting | | e.g., by priority, duration |
-| Filtering | | e.g., skip tasks if time runs out |
-| Conflict handling | | e.g., overlapping time slots |
-| Recurring tasks | | e.g., daily vs. weekly |
+| Sorting | `Scheduler.sort_by_time()`, `Scheduler.sort_tasks()` | Chronological (time of day) and multi-key urgency ordering |
+| Filtering | `Scheduler.filter_by()`, `Scheduler.filter_tasks()` | By pet, completion status, priority, due date, and duration |
+| Conflict detection | `Scheduler.detect_conflicts()` | Flags tasks scheduled for the same date/time, even across pets |
+| Recurring tasks | `Task.mark_complete()` | Auto-schedules the next `daily`/`weekly` occurrence |
+| Constraint-based planning | `Scheduler.build_schedule()` | Ties it together: filter → sort → greedily fit into available time |
+
+### Sorting behavior
+
+Two complementary sorts are provided:
+
+- **`Scheduler.sort_by_time()`** orders tasks by time of day, earliest first.
+  The sort key is each task's due time formatted as a zero-padded `"HH:MM"`
+  string, so a plain string comparison already yields correct chronological
+  order (`"07:30" < "08:00" < "18:00"`). Returns a new list, leaving the
+  caller's original order untouched.
+- **`Scheduler.sort_tasks()`** orders tasks by *urgency* using a composite key:
+  earliest **due date** first, then highest **priority** (via the
+  `PRIORITY_ORDER` map so `high < medium < low` rather than sorting
+  alphabetically), then shortest **duration** so quick wins are knocked out
+  sooner.
+
+### Filtering behavior
+
+- **`Scheduler.filter_by()`** filters by **pet** (`pet_name`) and/or
+  **completion status** (`completed=True`/`False`/`None`). The two filters
+  combine, e.g. "Rex's unfinished tasks."
+- **`Scheduler.filter_tasks()`** is the broader planning filter: it drops
+  completed tasks by default (`include_completed`) and additionally narrows by
+  `priority`, a `due_by` cutoff, and `max_duration`. Any argument left as
+  `None` is simply not applied.
+
+### Conflict detection logic
+
+**`Scheduler.detect_conflicts()`** groups the *incomplete* tasks by their due
+date/time and reports any slot holding more than one task. Completed tasks are
+excluded (a finished task can't clash), and detection works **across pets** —
+two pets both due at 08:00 is still a conflict for the one owner who has to be
+in two places at once. It never raises; it returns a list of human-readable
+warning strings (an empty list means no clashes).
+
+### Recurring task logic
+
+**`Task.mark_complete()`** marks a task done and, if it repeats, schedules the
+next occurrence. Frequency is one of `once`, `daily`, or `weekly`
+(`FREQUENCIES`). For a recurring task it builds a fresh incomplete `Task` with
+the same description/priority/duration and its due date advanced by the
+matching `FREQUENCY_DELTA` `timedelta` — using `timedelta` means month/year
+rollovers are handled correctly (a daily task due Jan 31 becomes Feb 1). The
+new task is attached to the same pet and returned; a `once` task returns
+`None` because there is nothing to reschedule.
 
 ## 📸 Demo Walkthrough
 
